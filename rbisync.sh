@@ -106,10 +106,10 @@ RES=(${DRY_RUN})
 # backup the copying files into path[1 or 2]/_backup if there are "copy to" jobs
 if [ ${#RES[@]} -gt 0 ]; then
 	echo "[${#RES[@]}] files conflict...Create&Update exclude.list to exclude file update..."
-	REPORT=true
 	
 	if [ -e $EXCLUDE_FILE ]; then
 	  rm $EXCLUDE_FILE
+  	  touch $EXCLUDE_FILE
 	fi
 	
 	for ((i=0;i<${#RES[@]};i++))
@@ -128,4 +128,9 @@ echo ""
 echo "Start actual bisync................"
 
 #cat $EXCLUDE_FILE
-rclone bisync $PATH1 $PATH2 --verbose --log-format="" --exclude _backup/** --exclude-from $EXCLUDE_FILE --dry-run 2>&1 | tee $BISYNC_LOG
+if $REPORT ; then
+	echo "Start actual bisync................"
+	rclone bisync $PATH1 $PATH2 --verbose --log-format="" --exclude _backup/** --exclude-from $EXCLUDE_FILE 2>&1 | tee $BISYNC_LOG
+else
+	echo "No update..................."
+fi
