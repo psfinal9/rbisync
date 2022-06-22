@@ -6,4 +6,6 @@
    (_backup will not be synced)
 
 ## usage
+```shell
 bash rbisync.sh <path1> <path2>
+```
