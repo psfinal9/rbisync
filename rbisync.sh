@@ -8,7 +8,7 @@ BISYNC_LOG="bisync.log"
 
 EXCLUDE_FILE="exclude.list"
 # store bisync status log with --dry-run into bisync.log
-rclone bisync $PATH1 $PATH2 --dry-run --verbose --exclude _backup/** --log-format="" 2>&1 | tee $BISYNC_LOG
+rclone bisync $PATH1 $PATH2 --dry-run --verbose --exclude _backup/** --log-format="" > $BISYNC_LOG
 
 # 1. capture "copy to" action from bisync.log
 DRY_RUN=$(cat $BISYNC_LOG | sed -s 's/:/ /'|grep -E 'INFO\s*-\s*Path[1|2]\s*Queue copy to'|awk '{\
@@ -24,11 +24,15 @@ RES=(${DRY_RUN})
 # backup the copying files into path[1 or 2]/_backup if there are "copy to" jobs
 REPORT=false
 
+echo "Path1:%PATH1"
+echo "Path2:%PATH2"
+echo ""
+
 if [ ${#RES[@]} -gt 0 ]; then 
 	echo "[$((${#RES[@]}/2))]  file changed...backup files..."
 	REPORT=true
 else
-	echo "No newer file in both $PATH1/$PATH2 ..."
+	echo "No newer file in both Path1/Path2 ..."
 fi
 
 for ((i=0;i<${#RES[@]};i+=2))
@@ -70,7 +74,7 @@ if [ ${#RES[@]} -gt 0 ]; then
 	echo "[$((${#RES[@]}/2))] files deleted...backup files..."
 	REPORT=true
 else
-	echo "No file deletion in both $PATH1/$PATH2 ..."
+	echo "No file deletion in both Path1/Path2 ..."
 fi
 
 # backup the deleting files into path[1 or 2]/_backup if there are "delete" jobs
@@ -122,15 +126,14 @@ if [ ${#RES[@]} -gt 0 ]; then
 		echo ${RES[$i]} >> $EXCLUDE_FILE
 	done
 else
-	echo "No file conflict in both $PATH1/$PATH2 ..."
+	echo "No file conflict in both Path1/Path2 ..."
 fi
 echo ""
-echo "Start actual bisync................"
 
 #cat $EXCLUDE_FILE
 if $REPORT ; then
 	echo "Start actual bisync................"
-	rclone bisync $PATH1 $PATH2 --verbose --log-format="" --exclude _backup/** --exclude-from $EXCLUDE_FILE 2>&1 | tee $BISYNC_LOG
+	rclone bisync $PATH1 $PATH2 --verbose --exclude _backup/** --exclude-from $EXCLUDE_FILE 2>&1 | tee $BISYNC_LOG
 else
 	echo "No update..................."
 fi
