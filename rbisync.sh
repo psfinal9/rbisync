@@ -179,6 +179,8 @@ else
 fi
 
 if $UPDATE : then
-	# report via joplin or email
-	
 fi
+
+# report via joplin or email
+	
+
