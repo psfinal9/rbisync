@@ -14,6 +14,7 @@ EXCLUDE_FILE="exclude.list"
 if [ -e $BISYNC_LOG ]; then
   rm $BISYNC_LOG
 fi
+
 rclone bisync $PATH1 $PATH2 --dry-run --verbose --exclude _backup/** --log-format="" --log-file=$BISYNC_LOG
 
 # 1. capture "copy to" action from bisync.log
@@ -29,13 +30,25 @@ RES=(${DRY_RUN})
 
 # backup the copying files into path[1 or 2]/_backup/YYYY-MM-DDTHH-MM-SS/ if there are "copy to" or "delete" jobs
 # 
-BACKUP_DIR_NAME="_backup/$(date '+%Y-%m-%dT%T')"
+BACKUP_DIR_NAME="_backup/$(date '+%Y-%m-%dT%H%M%S')"
 
 # report to joplin or email 
 REPORT=false
 
 # do actual bisync or not
-UPDATE=false
+RUN_BISYNC=false
+
+create_backup_folder() {
+
+	if [[ "$1" =~ ':' ]] ; then
+		echo "$1 IS REMOTE"
+		rclone mkdir "$1/$2"
+	else
+		if [ ! -d $1/$2 ]; then
+			   mkdir "$1/$2"
+		fi
+	fi
+}
 
 echo "---------------------------------------------------------------------------------"
 echo "Path1:$PATH1"
@@ -43,37 +56,40 @@ echo "Path2:$PATH2"
 echo ""
 
 if [ ${#RES[@]} -gt 0 ]; then 
-	echo "$((${#RES[@]}/2))  file changed...backup files..."
+	echo "## $((${#RES[@]}/2))  file changed...backup files... ##"
 	REPORT=true
-	UPDATE=true
+	RUN_BISYNC=true
 else
-	echo "No newer file in both Path1/Path2 ..."
+	echo "## No newer file in both Path1/Path2 ... ##"
 fi
 
 for ((i=0;i<${#RES[@]};i+=2))
 do  
   if [ "${RES[i]}" = "Path1" ]; then
-	
-	if [ ! -d $PATH1/$BACKUP_DIR_NAME ]; then
-	    mkdir "$PATH1/$BACKUP_DIR_NAME"
-	fi
-	
+		
 	# replace '\' with space
 	RES[$i+1]=${RES[$i+1]/\\/ }  
+	create_backup_folder $PATH1 $BACKUP_DIR_NAME
 	
-	echo "[$(($i+1))/$((${#RES[@]}/2))] cp $PATH1/${RES[$i+1]} $PATH1/$BACKUP_DIR_NAME/"
-	cp $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/
+	echo "[$(($i+1))/$((${#RES[@]}/2))] backup Path1/${RES[$i+1]} Path1/$BACKUP_DIR_NAME/"
+	if [[ "$PATH1" =~ ':' ]] ; then
+	    rclone copy $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ --verbose 2>&1
+	else
+	    cp $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ 2>&1
+	fi
 	#path1/_backup/${RES[$i+1]}"
   elif [ "${RES[i]}" = "Path2" ]; then
 	# replace '\' with space
-	RES[$i+1]=${RES[$i+1]/\\/ }  
-	  
-	if [ ! -d $PATH2/$BACKUP_DIR_NAME ]; then
-	    mkdir "$PATH2/$BACKUP_DIR_NAME"
-	fi
+	RES[$i+1]=${RES[$i+1]/\\/ }
+	create_backup_folder $PATH2 $BACKUP_DIR_NAME
 	
-	echo "[$(($i+1))/$((${#RES[@]}/2))] cp $PATH2/${RES[$i+1]} $PATH2/$BACKUP_DIR_NAME/"
-	cp $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/
+	echo "[$(($i+1))/$((${#RES[@]}/2))] backup Path2/${RES[$i+1]} Path2/$BACKUP_DIR_NAME/"
+	if [[ "$PATH2" =~ ':' ]] ; then
+	    rclone copy $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ --verbose 2>&1
+	else
+      cp $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ 2>&1
+	fi
+
 	#TEST="2016#10 worksheet.xlsx"
 	#cp path2/"$TEST" path2/_backup/
   
@@ -98,11 +114,11 @@ RES=(${DRY_RUN})
 
 if [ ${#RES[@]} -gt 0 ]; then 
 
-	echo "[$((${#RES[@]}/2))] files deleted...backup files..."
+	echo "## $((${#RES[@]}/2)) files deleted...backup files... ##"
 	REPORT=true
-	UPDATE=true
+	RUN_BISYNC=true
 else
-	echo "No file deletion in both Path1/Path2 ..."
+	echo "## No file deletion in both Path1/Path2 ... ##"
 fi
 
 # backup the deleting files into path[1 or 2]/_backup if there are "delete" jobs
@@ -110,27 +126,29 @@ for ((i=0;i<${#RES[@]};i+=2))
 do
   if [ "${RES[$i]}" = "Path1" ]; then
 
-	if [ ! -d $PATH1/$BACKUP_DIR_NAME ]; then
-		mkdir "$PATH1/$BACKUP_DIR_NAME"
-	fi
-
 	# replace '\' with space
 	RES[$i+1]=${RES[$i+1]/\\/ }  
+	create_backup_folder $PATH1 $BACKUP_DIR_NAME
 
-    echo "[$(($i+1))/$((${#RES[@]}/2))]  cp $PATH1/${RES[$i+1]} $PATH1/$BACKUP_DIR_NAME"
-    cp $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME
+    echo "[$(($i+1))/$((${#RES[@]}/2))]  backup Path1/${RES[$i+1]} Path1/$BACKUP_DIR_NAME"
+	if [[ "$PATH1" =~ ':' ]] ; then
+	   rclone copy $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ --verbose 2>&1
+	else
+       cp $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ 2>&1
+	fi
 	#path1/_backup/${RES[$i+1]}"
   elif [ "${RES[i]}" = "Path2" ]; then
-	
-	if [ ! -d $PATH2/$BACKUP_DIR_NAME ]; then
-		mkdir "$PATH2/$BACKUP_DIR_NAME"
-	fi
-	
+		
 	# replace '\' with space
 	RES[$i+1]=${RES[$i+1]/\\/ }  
+	create_backup_folder $PATH2 $BACKUP_DIR_NAME
 
-	echo "[$(($i+1))/$((${#RES[@]}/2))]  cp $PATH2/${RES[$i+1]} $PATH2/$BACKUP_DIR_NAME/"
-	cp path2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/
+	echo "[$(($i+1))/$((${#RES[@]}/2))]  backup Path2/${RES[$i+1]} Path2/$BACKUP_DIR_NAME/"
+    if [[ "$PATH2" =~ ':' ]] ; then
+       rclone copy $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ --verbose 2>&1
+    else
+       cp $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ 2>&1
+    fi
   else
 	echo "something wrong...need to check..."
 	exit 127
@@ -152,9 +170,9 @@ if [ -e $EXCLUDE_FILE ]; then
 fi
 	
 if [ ${#RES[@]} -gt 0 ]; then
-	echo "${#RES[@]} files conflict...will be excluded when bisyncing..."
+	echo "## ${#RES[@]} files conflict...will be excluded when bisyncing... ##"
 	
-	UPDATE=true
+	REPORT=true
 	
 	for ((i=0;i<${#RES[@]};i++))
 	do
@@ -166,21 +184,19 @@ if [ ${#RES[@]} -gt 0 ]; then
 		echo ${RES[$i]} >> $EXCLUDE_FILE
 	done
 else
-	echo "No file conflict in both Path1/Path2 ..."
+	echo "***No file conflict in both Path1/Path2 ...***"
 fi
 echo ""
 
 #cat $EXCLUDE_FILE
-if $REPORT ; then
+if $RUN_BISYNC ; then
 	echo "Start actual bisync................"
-	rclone bisync $PATH1 $PATH2 --exclude _backup/** --exclude-from $EXCLUDE_FILE 2>&1 | tee $BISYNC_LOG
+	rclone bisync $PATH1 $PATH2 --verbose --exclude _backup/** --exclude-from $EXCLUDE_FILE 2>&1 | tee $BISYNC_LOG
 else
 	echo "No actual bisync..................."
 fi
 
-if $UPDATE : then
+if $REPORT ; then
+   echo "Report to Joplin..."
+   python -u ~/_NASSYNC/GitHub/python/Log2Joplin.py --path ~/ --notebook 데일리업뎃 2>&1 | tee -a checkMailDaily.log
 fi
-
-# report via joplin or email
-	
-
