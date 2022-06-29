@@ -17,6 +17,23 @@ fi
 
 rclone bisync $PATH1 $PATH2 --dry-run --verbose --exclude _backup/** --log-format="" --log-file=$BISYNC_LOG
 
+
+#
+# 0.check if bisync failed or not
+# "Failed to bisync: all files were changed"
+#
+DRY_RUN=$(cat $BISYNC_LOG | sed -s 's/:/ /'|grep -E 'Failed to bisync')
+RES=(${DRY_RUN})
+
+if [ ${#RES[@]} -gt 0 ]; then 
+    echo "## failed bisync...report to Joplin & exit ##"
+    cat $BISYNC_LOG
+    python -u ~/_NASSYNC/GitHub/python/Log2Joplin.py --path ~/ --notebook 데일리업뎃 2>&1 | tee -a checkMailDaily.log
+    exit 0
+fi
+
+
+#
 # 1. capture "copy to" action from bisync.log
 DRY_RUN=$(cat $BISYNC_LOG | sed -s 's/:/ /'|grep -E 'INFO\s*-\s*Path[1|2]\s*Queue copy to'|awk '{\
 if ($7 == "Path2") {sub(".*/","",$9); filename=substr($0, index($0, $9)); gsub(/ /,"\\",filename); print "Path2 " filename;} \
@@ -41,7 +58,7 @@ RUN_BISYNC=false
 create_backup_folder() {
 
 	if [[ "$1" =~ ':' ]] ; then
-		echo "$1 IS REMOTE"
+	#echo "$1 IS REMOTE"
 		rclone mkdir "$1/$2"
 	else
 		if [ ! -d $1/$2 ]; then
@@ -71,9 +88,9 @@ do
 	RES[$i+1]=${RES[$i+1]/\\/ }  
 	create_backup_folder $PATH1 $BACKUP_DIR_NAME
 	
-	echo "[$(($i+1))/$((${#RES[@]}/2))] backup Path1/${RES[$i+1]} Path1/$BACKUP_DIR_NAME/"
+	echo "[$((($i+1)/2))/$((${#RES[@]}/2))] backup **Path1/${RES[$i+1]}** Path1/$BACKUP_DIR_NAME/"
 	if [[ "$PATH1" =~ ':' ]] ; then
-	    rclone copy $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ --verbose 2>&1
+	    rclone copy $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ 2>&1
 	else
 	    cp $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ 2>&1
 	fi
@@ -83,9 +100,9 @@ do
 	RES[$i+1]=${RES[$i+1]/\\/ }
 	create_backup_folder $PATH2 $BACKUP_DIR_NAME
 	
-	echo "[$(($i+1))/$((${#RES[@]}/2))] backup Path2/${RES[$i+1]} Path2/$BACKUP_DIR_NAME/"
+	echo "[$((($i+1)/2))/$((${#RES[@]}/2))] backup **Path2/${RES[$i+1]}** Path2/$BACKUP_DIR_NAME/"
 	if [[ "$PATH2" =~ ':' ]] ; then
-	    rclone copy $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ --verbose 2>&1
+	    rclone copy $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ 2>&1
 	else
       cp $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ 2>&1
 	fi
@@ -130,9 +147,9 @@ do
 	RES[$i+1]=${RES[$i+1]/\\/ }  
 	create_backup_folder $PATH1 $BACKUP_DIR_NAME
 
-    echo "[$(($i+1))/$((${#RES[@]}/2))]  backup Path1/${RES[$i+1]} Path1/$BACKUP_DIR_NAME"
+    echo "[$((($i+1)/2))/$((${#RES[@]}/2))]  backup **Path1/${RES[$i+1]}** Path1/$BACKUP_DIR_NAME"
 	if [[ "$PATH1" =~ ':' ]] ; then
-	   rclone copy $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ --verbose 2>&1
+	   rclone copy $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ 2>&1
 	else
        cp $PATH1/"${RES[$i+1]}" $PATH1/$BACKUP_DIR_NAME/ 2>&1
 	fi
@@ -143,9 +160,9 @@ do
 	RES[$i+1]=${RES[$i+1]/\\/ }  
 	create_backup_folder $PATH2 $BACKUP_DIR_NAME
 
-	echo "[$(($i+1))/$((${#RES[@]}/2))]  backup Path2/${RES[$i+1]} Path2/$BACKUP_DIR_NAME/"
+	echo "[$((($i+1)/2))/$((${#RES[@]}/2))]  backup **Path2/${RES[$i+1]}** Path2/$BACKUP_DIR_NAME/"
     if [[ "$PATH2" =~ ':' ]] ; then
-       rclone copy $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ --verbose 2>&1
+       rclone copy $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ 2>&1
     else
        cp $PATH2/"${RES[$i+1]}" $PATH2/$BACKUP_DIR_NAME/ 2>&1
     fi
@@ -180,7 +197,7 @@ if [ ${#RES[@]} -gt 0 ]; then
 		RES[$i]=${RES[$i]/\\/ }  
 		#EXCLUDE_FILE="--exclude \"${RES[$i]}\""
 		#EXCLUDE_FILE=${RES[$i]}
-		echo "[$(($i+1))/${#RES[@]}] Exclude conflict file: ${RES[$i]}"
+		echo "[$((($i+1)/2))/${#RES[@]}] Exclude conflict file: **${RES[$i]}**"
 		echo ${RES[$i]} >> $EXCLUDE_FILE
 	done
 else
@@ -190,11 +207,12 @@ echo ""
 
 #cat $EXCLUDE_FILE
 if $RUN_BISYNC ; then
-	echo "Start actual bisync................"
+	echo "## Start actual bisync................ ##"
 	rclone bisync $PATH1 $PATH2 --verbose --exclude _backup/** --exclude-from $EXCLUDE_FILE 2>&1 | tee $BISYNC_LOG
 else
-	echo "No actual bisync..................."
+	echo "## No actual bisync................... ##"
 fi
+
 
 if $REPORT ; then
    echo "Report to Joplin..."
