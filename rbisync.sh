@@ -67,7 +67,7 @@ fi
 # -1. trying to find No changes foun
 #
 
-rclone bisync $PATH1 $PATH2 --dry-run --verbose --exclude _backup/** --exclude-from $EXCLUDE_FILE --log-format="" --log-file=$BISYNC_LOG
+rclone bisync $PATH1 $PATH2 --dry-run --verbose --exclude _backup/ --exclude-from $EXCLUDE_FILE --log-format="" --log-file=$BISYNC_LOG
 
 DRY_RUN=$(cat $BISYNC_LOG | sed -s 's/:/ /'|grep -E 'No changes found')
 RES=(${DRY_RUN})
@@ -274,7 +274,7 @@ echo ""
 #cat $EXCLUDE_FILE
 if $RUN_BISYNC ; then
 	echo "## Start actual bisync................ ##"
-	rclone bisync $PATH1 $PATH2 --verbose --exclude _backup/** --exclude-from $EXCLUDE_FILE 2>&1 | tee $BISYNC_LOG
+	rclone bisync $PATH1 $PATH2 --verbose --exclude _backup/ --exclude-from $EXCLUDE_FILE 2>&1 | tee $BISYNC_LOG
 else
 	echo "## No actual bisync................... ##"
 fi
